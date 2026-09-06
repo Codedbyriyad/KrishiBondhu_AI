@@ -1,10 +1,10 @@
-from fastapi import APIRouter, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.core.config import get_settings
 from app.database.session import engine
-from app.routers import auth, weather
+from app.routers import auth, chat, weather
 
 settings = get_settings()
 
@@ -22,20 +22,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# All versioned API routes live under /api/v1. Each router below already
-# defines its own resource prefix (e.g. "/auth", "/weather"), so mounting
-# them on api_router (not directly on `app`) yields /api/v1/auth/*,
-# /api/v1/weather/*, etc. with no double-prefixing.
-api_router = APIRouter(prefix="/api/v1")
-api_router.include_router(auth.router)
-api_router.include_router(weather.router)
-
-app.include_router(api_router)
+# API v1
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
+app.include_router(weather.router, prefix="/api/v1")
 
 
 @app.get("/", tags=["Health"])
 def read_root() -> dict[str, str]:
-    return {"status": "ok", "message": f"{settings.app_name} is running"}
+    return {
+        "status": "ok",
+        "message": f"{settings.app_name} is running",
+    }
 
 
 @app.get("/health", tags=["Health"])
@@ -47,4 +45,5 @@ def health_check() -> dict[str, str]:
 async def db_health_check() -> dict[str, str]:
     async with engine.connect() as connection:
         await connection.execute(text("SELECT 1"))
+
     return {"status": "database connected"}

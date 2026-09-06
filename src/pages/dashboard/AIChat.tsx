@@ -1,6 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, Bot, User, Image as ImageIcon, Loader2, Sparkles, X } from 'lucide-react';
+import {
+  Send,
+  Mic,
+  Bot,
+  User,
+  Image as ImageIcon,
+  Loader2,
+  Sparkles,
+  X,
+} from 'lucide-react';
+
 import type { ChatMessage } from '../../types/dashboard';
+import { AgricultureService } from '../../services/api';
 
 const QUICK_SUGGESTIONS = [
   '🌾 Aman paddy pest control in Rajshahi',
@@ -14,9 +25,13 @@ export const AIChat: React.FC = () => {
       id: 'm1',
       sender: 'assistant',
       text: 'Salam! I am your KrishiBondhu AI advisor. Ask me anything in English or Bangla about your crops, pests, or soil.',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
     },
   ]);
+
   const [input, setInput] = useState('');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -27,7 +42,9 @@ export const AIChat: React.FC = () => {
 
   // Auto scroll to bottom
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({
+      behavior: 'smooth',
+    });
   };
 
   useEffect(() => {
@@ -37,7 +54,8 @@ export const AIChat: React.FC = () => {
   // Voice Recognition Handler
   const handleVoiceInput = () => {
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       alert('Voice input is not supported in this browser.');
@@ -45,31 +63,48 @@ export const AIChat: React.FC = () => {
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = 'bn-BD'; // Default to Bangla, change to 'en-US' if preferred
+
+    recognition.lang = 'bn-BD';
     recognition.interimResults = false;
 
-    recognition.onstart = () => setIsListening(true);
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
+
+      setInput((prev) =>
+        prev ? `${prev} ${transcript}` : transcript
+      );
     };
 
     recognition.start();
   };
 
   // Image Upload Handler
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      setSelectedImage(reader.result as string);
+    };
+
+    reader.readAsDataURL(file);
   };
 
   // Send Message
@@ -81,52 +116,76 @@ export const AIChat: React.FC = () => {
       sender: 'user',
       text: textToSend,
       image: selectedImage || undefined,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
+
     setInput('');
     setSelectedImage(null);
     setIsTyping(true);
 
     try {
-      // TODO: Replace this timeout with your real API call (e.g., fetch('/api/chat', ...))
-      setTimeout(() => {
-        const aiReply: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          sender: 'assistant',
-          text: 'For Aman paddy in Rajshahi right now, ensure water levels are maintained at 2-3 inches. Avoid excess nitrogen if leaf rust symptoms appear.',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        };
-        setMessages((prev) => [...prev, aiReply]);
-        setIsTyping(false);
-      }, 1000);
+      const data = await AgricultureService.chat(textToSend);
+
+      const aiReply: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'assistant',
+        text: data.response,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      };
+
+      setMessages((prev) => [...prev, aiReply]);
     } catch (error) {
-      console.error('Error getting response:', error);
+      console.error('Error getting AI response:', error);
+
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'assistant',
+        text: 'Sorry, I could not connect to the AI service right now. Please try again.',
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+    } finally {
       setIsTyping(false);
     }
   };
 
+  // Form Submit
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
     sendMessage(input);
   };
 
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col bg-white dark:bg-stone-900 rounded-3xl border border-stone-200/80 dark:border-stone-800 overflow-hidden shadow-sm">
+      
       {/* Header */}
       <div className="p-4 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between bg-stone-50/50 dark:bg-stone-900">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-emerald-600 text-white shadow-sm">
             <Bot className="w-5 h-5" />
           </div>
+
           <div>
             <h2 className="text-sm font-bold text-stone-800 dark:text-stone-100">
               Agro-AI Assistant
             </h2>
+
             <p className="text-[10px] text-emerald-600 font-medium flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Ready
-              for English & Bangla
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Ready for English & Bangla
             </p>
           </div>
         </div>
@@ -138,9 +197,12 @@ export const AIChat: React.FC = () => {
           <div
             key={msg.id}
             className={`flex items-start gap-3 ${
-              msg.sender === 'user' ? 'flex-row-reverse' : ''
+              msg.sender === 'user'
+                ? 'flex-row-reverse'
+                : ''
             }`}
           >
+            {/* Avatar */}
             <div
               className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                 msg.sender === 'user'
@@ -148,9 +210,14 @@ export const AIChat: React.FC = () => {
                   : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
               }`}
             >
-              {msg.sender === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+              {msg.sender === 'user' ? (
+                <User className="w-4 h-4" />
+              ) : (
+                <Bot className="w-4 h-4" />
+              )}
             </div>
 
+            {/* Message Bubble */}
             <div
               className={`max-w-[80%] sm:max-w-[70%] p-3.5 rounded-2xl text-xs leading-relaxed ${
                 msg.sender === 'user'
@@ -158,6 +225,7 @@ export const AIChat: React.FC = () => {
                   : 'bg-stone-100 dark:bg-stone-800 text-stone-800 dark:text-stone-200 rounded-tl-xs'
               }`}
             >
+              {/* Uploaded Image */}
               {msg.image && (
                 <img
                   src={msg.image}
@@ -165,20 +233,26 @@ export const AIChat: React.FC = () => {
                   className="max-w-full h-32 object-cover rounded-xl mb-2 border border-emerald-500/20"
                 />
               )}
+
               <p>{msg.text}</p>
-              <span className="text-[9px] opacity-70 block mt-1 text-right">{msg.timestamp}</span>
+
+              <span className="text-[9px] opacity-70 block mt-1 text-right">
+                {msg.timestamp}
+              </span>
             </div>
           </div>
         ))}
 
-        {/* Typing indicator */}
+        {/* Typing Indicator */}
         {isTyping && (
           <div className="flex items-start gap-3">
             <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 flex items-center justify-center shrink-0">
               <Bot className="w-4 h-4" />
             </div>
+
             <div className="bg-stone-100 dark:bg-stone-800 p-3.5 rounded-2xl rounded-tl-xs flex items-center gap-1.5">
               <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+
               <span className="text-xs text-stone-500 dark:text-stone-400">
                 Analyzing query...
               </span>
@@ -189,10 +263,11 @@ export const AIChat: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick Suggestions Chips */}
+      {/* Quick Suggestions */}
       {messages.length < 3 && !isTyping && (
         <div className="px-4 py-2 flex items-center gap-2 overflow-x-auto no-scrollbar">
           <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+
           {QUICK_SUGGESTIONS.map((suggestion, index) => (
             <button
               key={index}
@@ -205,7 +280,7 @@ export const AIChat: React.FC = () => {
         </div>
       )}
 
-      {/* Image Preview Bar */}
+      {/* Image Preview */}
       {selectedImage && (
         <div className="px-4 py-2 bg-stone-50 dark:bg-stone-800/50 border-t border-stone-100 dark:border-stone-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -214,9 +289,14 @@ export const AIChat: React.FC = () => {
               alt="Preview"
               className="w-10 h-10 object-cover rounded-lg border border-stone-200 dark:border-stone-700"
             />
-            <span className="text-xs text-stone-600 dark:text-stone-300">Image attached</span>
+
+            <span className="text-xs text-stone-600 dark:text-stone-300">
+              Image attached
+            </span>
           </div>
+
           <button
+            type="button"
             onClick={() => setSelectedImage(null)}
             className="p-1 rounded-full hover:bg-stone-200 dark:hover:bg-stone-700 text-stone-500"
           >
@@ -230,6 +310,7 @@ export const AIChat: React.FC = () => {
         onSubmit={handleFormSubmit}
         className="p-3 border-t border-stone-100 dark:border-stone-800 flex items-center gap-2"
       >
+        {/* Hidden File Input */}
         <input
           type="file"
           ref={fileInputRef}
@@ -238,7 +319,7 @@ export const AIChat: React.FC = () => {
           className="hidden"
         />
 
-        {/* Image Attachment Button */}
+        {/* Image Button */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
@@ -248,7 +329,7 @@ export const AIChat: React.FC = () => {
           <ImageIcon className="w-4 h-4" />
         </button>
 
-        {/* Mic / Voice Button */}
+        {/* Voice Button */}
         <button
           type="button"
           onClick={handleVoiceInput}
@@ -262,6 +343,7 @@ export const AIChat: React.FC = () => {
           <Mic className="w-4 h-4" />
         </button>
 
+        {/* Text Input */}
         <input
           type="text"
           value={input}
@@ -270,6 +352,7 @@ export const AIChat: React.FC = () => {
           className="flex-1 bg-stone-100 dark:bg-stone-800 text-xs text-stone-800 dark:text-stone-100 px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/50"
         />
 
+        {/* Send Button */}
         <button
           type="submit"
           disabled={!input.trim() && !selectedImage}

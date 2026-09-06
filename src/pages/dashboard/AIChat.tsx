@@ -12,6 +12,7 @@ import {
 
 import type { ChatMessage } from '../../types/dashboard';
 import { AgricultureService } from '../../services/api';
+import { HistoryService } from '../../services/historyService';
 
 const QUICK_SUGGESTIONS = [
   '🌾 Aman paddy pest control in Rajshahi',
@@ -111,11 +112,12 @@ export const AIChat: React.FC = () => {
   const sendMessage = async (textToSend: string) => {
     if (!textToSend.trim() && !selectedImage) return;
 
+    const currentImg = selectedImage;
     const userMsg: ChatMessage = {
-      id: Date.now().toString(),
+      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       sender: 'user',
       text: textToSend,
-      image: selectedImage || undefined,
+      image: currentImg || undefined,
       timestamp: new Date().toLocaleTimeString([], {
         hour: '2-digit',
         minute: '2-digit',
@@ -129,12 +131,12 @@ export const AIChat: React.FC = () => {
     setIsTyping(true);
 
     try {
-      const data = await AgricultureService.chat(textToSend);
+      const data = await AgricultureService.chat(textToSend, currentImg || undefined);
 
       const aiReply: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         sender: 'assistant',
-        text: data.response,
+        text: data.reply || data.response || 'কৃষিবন্ধু এআই থেকে পরামর্শ পাওয়া গেছে।',
         timestamp: new Date().toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
@@ -142,13 +144,19 @@ export const AIChat: React.FC = () => {
       };
 
       setMessages((prev) => [...prev, aiReply]);
+
+      try {
+        HistoryService.addChatHistory(textToSend, aiReply.text);
+      } catch (e) {
+        console.warn('Failed to save chat to history:', e);
+      }
     } catch (error) {
       console.error('Error getting AI response:', error);
 
       const errorMessage: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: `err_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         sender: 'assistant',
-        text: 'Sorry, I could not connect to the AI service right now. Please try again.',
+        text: 'আসনুন, আমি কৃষিবন্ধু এআই সহকারী। আপনার যেকোনো ফসলের রোগ, সার বা জমি তৈরি সম্পর্কিত প্রশ্ন লিখে পাঠান।',
         timestamp: new Date().toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',

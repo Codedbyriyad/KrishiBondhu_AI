@@ -1,0 +1,6 @@
+{
+  "name": "KrishiBondhu AI",
+  "description": "AI-powered agricultural assistant platform for crop guides, plant disease detection, fertilizer recommendations, and smart farming advice.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

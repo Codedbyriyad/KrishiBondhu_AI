@@ -4,12 +4,19 @@ export interface TreatmentPlan {
 }
 
 export interface DiseaseResult {
+  id?: string;
   isHealthy: boolean;
   diseaseName: string;
+  cropType?: string;
   scientificName?: string;
   confidence: number; // Percentage (e.g., 94.5)
-  severity: 'low' | 'medium' | 'high';
+  severity: 'High' | 'Medium' | 'Low' | 'high' | 'medium' | 'low';
   description: string;
-  treatments: TreatmentPlan;
-  prevention: string[];
+  organicRemediation?: string[];
+  chemicalRemediation?: string[];
+  preventiveTips?: string[];
+  treatments?: TreatmentPlan;
+  prevention?: string[];
+  scannedAt?: string;
+  imagePreview?: string;
 }

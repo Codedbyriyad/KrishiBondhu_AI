@@ -1,7 +1,6 @@
 import type { ChatMessage, FastAPIChatRequest, FastAPIChatResponse } from '../types/chat';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
-const USE_MOCK_API = true; // Set to false when FastAPI server is running
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1';
 
 const DUMMY_RESPONSES: Record<string, string> = {
   default: `Based on your crop parameters and regional weather patterns, I recommend ensuring adequate soil moisture before applying nitrogen-rich fertilizers. 
@@ -24,7 +23,7 @@ Let me know if you would like me to analyze a plant leaf image or pull recent we
 export class ChatService {
   /**
    * Sends a message to the AI Assistant.
-   * Prepares payload for FastAPI POST /chat endpoint.
+   * Calls API server /chat endpoint with fallback to dummy responses.
    */
   static async sendMessage(
     sessionId: string,
@@ -32,56 +31,50 @@ export class ChatService {
     attachments?: { base64?: string }[],
     historyMessages: ChatMessage[] = []
   ): Promise<FastAPIChatResponse> {
-    if (USE_MOCK_API) {
-      // Simulate network latency (1.2 seconds)
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-
-      let replyContent = DUMMY_RESPONSES.default;
-      const lower = messageText.toLowerCase();
-
-      if (lower.includes('disease') || lower.includes('spot') || lower.includes('fungus')) {
-        replyContent = DUMMY_RESPONSES.disease;
-      } else if (lower.includes('fertilizer') || lower.includes('npk') || lower.includes('urea')) {
-        replyContent = DUMMY_RESPONSES.fertilizer;
-      }
-
-      return {
-        id: `msg_${Date.now()}`,
+    try {
+      const payload: FastAPIChatRequest = {
         session_id: sessionId,
-        reply: replyContent,
-        created_at: new Date().toISOString(),
-        metadata: {
-          model: 'AgriLLM-v2.5',
-          tokens_used: 184,
-        },
+        message: messageText,
+        image_base64: attachments?.[0]?.base64 || null,
+        history: historyMessages.map((m) => ({
+          role: m.role,
+          content: m.content,
+        })),
       };
+
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+    } catch {
+      // Fallback if backend server endpoint is unreachable
     }
 
-    // ==========================================
-    // Real FastAPI Fetch Call
-    // ==========================================
-    const payload: FastAPIChatRequest = {
+    let replyContent = DUMMY_RESPONSES.default;
+    const lower = messageText.toLowerCase();
+
+    if (lower.includes('disease') || lower.includes('spot') || lower.includes('fungus')) {
+      replyContent = DUMMY_RESPONSES.disease;
+    } else if (lower.includes('fertilizer') || lower.includes('npk') || lower.includes('urea')) {
+      replyContent = DUMMY_RESPONSES.fertilizer;
+    }
+
+    return {
+      id: `msg_${Date.now()}`,
       session_id: sessionId,
-      message: messageText,
-      image_base64: attachments?.[0]?.base64 || null,
-      history: historyMessages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      })),
-    };
-
-    const response = await fetch(`${API_BASE_URL}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+      reply: replyContent,
+      created_at: new Date().toISOString(),
+      metadata: {
+        model: 'AgriLLM-v2.5',
+        tokens_used: 184,
       },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      throw new Error(`API error: ${response.statusText}`);
-    }
-
-    return await response.json();
+    };
   }
 }

@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -22,8 +22,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(weather.router)
+# All versioned API routes live under /api/v1. Each router below already
+# defines its own resource prefix (e.g. "/auth", "/weather"), so mounting
+# them on api_router (not directly on `app`) yields /api/v1/auth/*,
+# /api/v1/weather/*, etc. with no double-prefixing.
+api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(auth.router)
+api_router.include_router(weather.router)
+
+app.include_router(api_router)
 
 
 @app.get("/", tags=["Health"])
